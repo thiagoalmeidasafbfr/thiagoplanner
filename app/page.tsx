@@ -57,8 +57,8 @@ function TaskListContent() {
       ? `${subtitleCount} · concluídas`
       : `${subtitleCount} · bloqueadas`;
 
-  function handleAddTask(title: string) {
-    const task = addTask(title);
+  async function handleAddTask(title: string) {
+    const task = await addTask(title);
     setSelectedTaskId(task.id);
   }
 

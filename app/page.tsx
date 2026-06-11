@@ -1,101 +1,205 @@
-import Image from "next/image";
+"use client";
+
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { PageHero } from "@/components/PageHero";
+import { QuickAdd } from "@/components/QuickAdd";
+import { TaskCard } from "@/components/TaskCard";
+import { TaskDetail } from "@/components/TaskDetail";
+import { FilterBar } from "@/components/FilterBar";
+import { useTasks } from "@/hooks/useTasks";
+import { FilterType, Task } from "@/lib/types";
+
+function TaskListContent() {
+  const searchParams = useSearchParams();
+  const filter = (searchParams.get("filter") as FilterType) || "all";
+
+  const {
+    tasks,
+    hydrated,
+    addTask,
+    updateTask,
+    deleteTask,
+    addStep,
+    toggleStep,
+    deleteStep,
+    addComment,
+    getFilteredTasks,
+    counts,
+  } = useTasks();
+
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const filteredTasks = hydrated ? getFilteredTasks(filter) : [];
+  const selectedTask = tasks.find((t) => t.id === selectedTaskId) ?? null;
+
+  const filterLabels: Record<FilterType, string> = {
+    all: "Todas as tarefas",
+    today: "Criadas hoje",
+    doing: "Em andamento",
+    done: "Concluídas",
+    blocked: "Bloqueadas",
+  };
+
+  const subtitleCount =
+    filteredTasks.length === 1
+      ? "1 tarefa"
+      : `${filteredTasks.length} tarefas`;
+
+  const heroSubtitle =
+    filter === "all"
+      ? `${subtitleCount} · todos os status`
+      : filter === "today"
+      ? `${subtitleCount} · criadas hoje`
+      : filter === "doing"
+      ? `${subtitleCount} · em andamento`
+      : filter === "done"
+      ? `${subtitleCount} · concluídas`
+      : `${subtitleCount} · bloqueadas`;
+
+  function handleAddTask(title: string) {
+    const task = addTask(title);
+    setSelectedTaskId(task.id);
+  }
+
+  function handleSelectTask(task: Task) {
+    setSelectedTaskId((prev) => (prev === task.id ? null : task.id));
+  }
+
+  return (
+    <div className="flex flex-1 min-h-0 overflow-hidden">
+      {/* Main column */}
+      <div
+        className={`
+          flex flex-col flex-1 min-h-0 overflow-hidden
+          transition-all duration-250
+        `}
+      >
+        {/* Page Hero */}
+        <PageHero
+          title={filterLabels[filter]}
+          subtitle={heroSubtitle}
+        />
+
+        {/* Content area */}
+        <div className="flex-1 overflow-y-auto bg-cream-page">
+          <div className="px-8 py-6 max-w-2xl">
+            {/* Quick add */}
+            <QuickAdd onAdd={handleAddTask} />
+
+            {/* Filter bar */}
+            <div className="mt-5 mb-4">
+              <FilterBar currentFilter={filter} counts={counts} />
+            </div>
+
+            {/* Task list */}
+            {!hydrated ? (
+              <div className="space-y-2 mt-2">
+                {[...Array(3)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-20 bg-cream-card rounded-md border border-[rgba(26,20,16,0.08)] animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : filteredTasks.length === 0 ? (
+              <EmptyState filter={filter} />
+            ) : (
+              <ul className="space-y-2">
+                {filteredTasks.map((task) => (
+                  <li key={task.id}>
+                    <TaskCard
+                      task={task}
+                      isSelected={task.id === selectedTaskId}
+                      onClick={() => handleSelectTask(task)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Detail panel overlay */}
+      {selectedTask && (
+        <>
+          {/* Backdrop for mobile / click-outside */}
+          <div
+            className="fixed inset-0 z-10 bg-ink-primary/10 lg:hidden"
+            onClick={() => setSelectedTaskId(null)}
+          />
+          <div className="flex-shrink-0 z-20 h-full overflow-hidden flex" style={{boxShadow: '-4px 0 20px rgba(26,20,16,0.08)'}}>
+            <TaskDetail
+              task={selectedTask}
+              onClose={() => setSelectedTaskId(null)}
+              onUpdateTask={updateTask}
+              onAddStep={addStep}
+              onToggleStep={toggleStep}
+              onDeleteStep={deleteStep}
+              onAddComment={addComment}
+              onDeleteTask={deleteTask}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ filter }: { filter: FilterType }) {
+  const messages: Record<FilterType, { title: string; sub: string }> = {
+    all: {
+      title: "Nenhuma tarefa ainda",
+      sub: "Use o campo acima para criar sua primeira tarefa.",
+    },
+    today: {
+      title: "Nada criado hoje",
+      sub: "Tarefas criadas hoje aparecerão aqui.",
+    },
+    doing: {
+      title: "Nada em andamento",
+      sub: 'Mude o status de uma tarefa para "Fazendo".',
+    },
+    done: {
+      title: "Nenhuma tarefa concluída",
+      sub: 'Tarefas marcadas como "Concluída" aparecem aqui.',
+    },
+    blocked: {
+      title: "Nenhuma tarefa bloqueada",
+      sub: "Ótimo! Nada está bloqueado no momento.",
+    },
+  };
+  const msg = messages[filter];
+
+  return (
+    <div className="mt-12 flex flex-col items-center text-center px-4">
+      <div className="w-12 h-12 rounded-xl bg-cream-inset flex items-center justify-center mb-4">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="3" y="4" width="14" height="2" rx="1" fill="rgba(26,20,16,0.2)" />
+          <rect x="3" y="9" width="10" height="2" rx="1" fill="rgba(26,20,16,0.15)" />
+          <rect x="3" y="14" width="7" height="2" rx="1" fill="rgba(26,20,16,0.1)" />
+        </svg>
+      </div>
+      <p className="font-fraunces text-ink-primary text-base font-semibold">{msg.title}</p>
+      <p className="font-inter text-sm text-[rgba(26,20,16,0.45)] mt-1 max-w-xs">{msg.sub}</p>
+    </div>
+  );
+}
 
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <Suspense
+      fallback={
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <div className="flex flex-col flex-1">
+            <div className="bg-ink-primary px-8 pt-8 pb-7 h-24" />
+            <div className="flex-1 bg-cream-page" />
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      }
+    >
+      <TaskListContent />
+    </Suspense>
   );
 }

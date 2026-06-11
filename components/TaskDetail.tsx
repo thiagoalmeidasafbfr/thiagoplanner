@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Task, TaskStatus } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 
@@ -54,11 +54,12 @@ export function TaskDetail({
   const newStepRef = useRef<HTMLInputElement>(null);
   const newTagRef = useRef<HTMLInputElement>(null);
 
-  // Sync if task changes (e.g. from outside)
+  // Sync local state when the selected task changes (intentionally keyed on id only)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setTitle(task.title);
     setDescription(task.description);
-  }, [task.id]); // Only reset when task ID changes
+  }, [task.id]);
 
   // Auto-grow textareas
   function autoGrow(el: HTMLTextAreaElement | null) {
